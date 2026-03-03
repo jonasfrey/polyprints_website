@@ -21,8 +21,6 @@ import {
     o_wsmsg__logmsg,
     o_wsmsg__set_state_data,
     o_wsmsg__utterance,
-    o_wsmsg__f_v_crud__indb,
-    o_wsmsg__f_delete_table_data,
     s_o_logmsg_s_type__log,
     s_o_logmsg_s_type__info,
     s_o_logmsg_s_type__error,

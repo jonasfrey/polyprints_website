@@ -361,12 +361,12 @@ let f_o_wsmsg = function(
 }
 
 // message type definitions
-let o_wsmsg__deno_copy_file = f_o_wsmsg_def('deno_copy_file', false);
-let o_wsmsg__deno_stat = f_o_wsmsg_def('deno_stat', false);
-let o_wsmsg__deno_mkdir = f_o_wsmsg_def('deno_mkdir', false);
-let o_wsmsg__f_v_crud__indb = f_o_wsmsg_def('f_v_crud__indb', true);
-let o_wsmsg__f_delete_table_data = f_o_wsmsg_def('f_delete_table_data', true);
-let o_wsmsg__f_a_o_fsnode = f_o_wsmsg_def('f_a_o_fsnode', true);
+// let o_wsmsg__deno_copy_file = f_o_wsmsg_def('deno_copy_file', false);
+// let o_wsmsg__deno_stat = f_o_wsmsg_def('deno_stat', false);
+// let o_wsmsg__deno_mkdir = f_o_wsmsg_def('deno_mkdir', false);
+// let o_wsmsg__f_v_crud__indb = f_o_wsmsg_def('f_v_crud__indb', true);
+// let o_wsmsg__f_delete_table_data = f_o_wsmsg_def('f_delete_table_data', true);
+// let o_wsmsg__f_a_o_fsnode = f_o_wsmsg_def('f_a_o_fsnode', true);
 let o_wsmsg__logmsg = f_o_wsmsg_def('logmsg', false);
 let o_wsmsg__set_state_data = f_o_wsmsg_def('set_state_data', false);
 let o_wsmsg__utterance = f_o_wsmsg_def('utterance', false);
@@ -398,12 +398,12 @@ o_wsmsg__utterance.f_v_client_implementation = function(o_wsmsg, o_wsmsg__existi
 }
 
 let a_o_wsmsg = [
-    o_wsmsg__deno_copy_file,
-    o_wsmsg__deno_stat,
-    o_wsmsg__deno_mkdir,
-    o_wsmsg__f_v_crud__indb,
-    o_wsmsg__f_delete_table_data,
-    o_wsmsg__f_a_o_fsnode,
+    // o_wsmsg__deno_copy_file,
+    // o_wsmsg__deno_stat,
+    // o_wsmsg__deno_mkdir,
+    // o_wsmsg__f_v_crud__indb,
+    // o_wsmsg__f_delete_table_data,
+    // o_wsmsg__f_a_o_fsnode,
     o_wsmsg__logmsg,
     o_wsmsg__set_state_data,
     o_wsmsg__utterance,
@@ -432,13 +432,13 @@ export {
     s_name_prop_id,
     f_o_logmsg,
     a_o_wsmsg,
-    o_wsmsg__deno_copy_file,
-    o_wsmsg__deno_stat,
-    o_wsmsg__deno_mkdir,
-    o_wsmsg__f_v_crud__indb,
+    // o_wsmsg__deno_copy_file,
+    // o_wsmsg__deno_stat,
+    // o_wsmsg__deno_mkdir,
+    // o_wsmsg__f_v_crud__indb,
     o_wsmsg__set_state_data,
-    o_wsmsg__f_delete_table_data,
-    o_wsmsg__f_a_o_fsnode,
+    // o_wsmsg__f_delete_table_data,
+    // o_wsmsg__f_a_o_fsnode,
     o_wsmsg__logmsg,
     o_wsmsg__utterance,
     f_o_wsmsg,

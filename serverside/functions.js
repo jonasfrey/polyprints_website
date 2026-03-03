@@ -6,7 +6,9 @@
 import { s_ds } from './runtimedata.js';
 // ==== DB IMPORTS COMMENTED OUT ====
 // import { s_db_create, s_db_read } from '../localhost/runtimedata.js';
-import { a_o_wsmsg, f_o_model_instance, f_s_name_table__from_o_model, o_model__o_fsnode, o_model__o_utterance, o_wsmsg__deno_copy_file, o_wsmsg__deno_mkdir, o_wsmsg__deno_stat, o_wsmsg__f_a_o_fsnode, o_wsmsg__f_delete_table_data, o_wsmsg__f_v_crud__indb, o_wsmsg__logmsg, o_wsmsg__set_state_data } from '../localhost/constructors.js';
+import { a_o_wsmsg,
+    f_o_model_instance,
+     f_s_name_table__from_o_model, o_wsmsg__logmsg, o_wsmsg__set_state_data } from '../localhost/constructors.js';
 // import { f_v_crud__indb, f_db_delete_table_data } from './database_functions.js';
 // import { f_o_uttdatainfo } from './cli_functions.js';
 
@@ -72,18 +74,18 @@ let f_a_o_fsnode = async function(
 // WARNING: the following deno_copy_file, deno_stat, deno_mkdir handlers expose raw Deno APIs
 // to any connected WebSocket client with arbitrary arguments. Fine for local dev use,
 // but must be restricted or removed before any network-exposed deployment.
-o_wsmsg__deno_copy_file.f_v_server_implementation = function(o_wsmsg){
-    let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
-    return Deno.copyFile(...a_v_arg);
-}
-o_wsmsg__deno_stat.f_v_server_implementation = function(o_wsmsg){
-    let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
-    return Deno.stat(...a_v_arg);
-}
-o_wsmsg__deno_mkdir.f_v_server_implementation = function(o_wsmsg){
-    let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
-    return Deno.mkdir(...a_v_arg);
-}
+// o_wsmsg__deno_copy_file.f_v_server_implementation = function(o_wsmsg){
+//     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
+//     return Deno.copyFile(...a_v_arg);
+// }
+// o_wsmsg__deno_stat.f_v_server_implementation = function(o_wsmsg){
+//     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
+//     return Deno.stat(...a_v_arg);
+// }
+// o_wsmsg__deno_mkdir.f_v_server_implementation = function(o_wsmsg){
+//     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
+//     return Deno.mkdir(...a_v_arg);
+// }
 // ==== DB: CRUD server implementations commented out ====
 // o_wsmsg__f_v_crud__indb.f_v_server_implementation = function(o_wsmsg){
 //     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
@@ -93,10 +95,10 @@ o_wsmsg__deno_mkdir.f_v_server_implementation = function(o_wsmsg){
 //     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
 //     return f_db_delete_table_data(...a_v_arg);
 // }
-o_wsmsg__f_a_o_fsnode.f_v_server_implementation = function(o_wsmsg){
-    let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
-    return f_a_o_fsnode(...a_v_arg);
-}
+// o_wsmsg__f_a_o_fsnode.f_v_server_implementation = function(o_wsmsg){
+//     let a_v_arg = Array.isArray(o_wsmsg.v_data) ? o_wsmsg.v_data : [];
+//     return f_a_o_fsnode(...a_v_arg);
+// }
 o_wsmsg__logmsg.f_v_server_implementation = function(o_wsmsg){
     let o_logmsg = o_wsmsg.v_data;
     if(o_logmsg.b_consolelog){

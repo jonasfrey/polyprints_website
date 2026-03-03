@@ -5,7 +5,7 @@ import { createRouter, createWebHashHistory } from './lib/vue-router.esm-browser
 import {
     a_o_model,
     f_s_name_table__from_o_model,
-    o_wsmsg__f_v_crud__indb,
+    // o_wsmsg__f_v_crud__indb,
     o_wsmsg__logmsg,
     a_o_wsmsg,
     f_o_wsmsg,
@@ -32,10 +32,7 @@ import { o_logmsg__run_command } from "./runtimedata.js";
 let o_state = reactive({
     b_loaded: false,
     a_o_route : [
-        {
-            path: '/',
-            redirect: '/home',
-        },
+
         {
             path: '/home',
             name: 'home',
