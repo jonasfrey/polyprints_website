@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Web App
+Comment=Start the web application and open browser
+Exec=/home/legion5pro/code/polyprints_website/start.sh
+Path=/home/legion5pro/code/polyprints_website
+Icon=web-browser
+Terminal=false
+Categories=Development;
+StartupNotify=true

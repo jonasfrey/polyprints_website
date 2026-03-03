@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polygon Mesh Background</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #0a0a12; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #clock {
+    position: fixed;
+    color: rgba(180, 230, 240, 0.25);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 1.4rem;
+    font-weight: 200;
+    letter-spacing: 0.05em;
+    user-select: none;
+    pointer-events: none;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="clock"></div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', { antialias: true, alpha: false });
+
+// --- Config ---
+const NUM_POINTS = 150;
+const CONNECTION_DIST = 0.28;
+const POINT_SIZE = 3.0;
+
+
+// --- Resize ---
+function resize() {
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- Shaders ---
+const lineVS = `
+  attribute vec2 aPos;
+  attribute float aAlpha;
+  varying float vAlpha;
+  uniform vec2 uResolution;
+  void main() {
+    float aspect = uResolution.x / uResolution.y;
+    vec2 p = aPos;
+    p.x /= aspect;
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+    gl_Position.x *= aspect;
+    vAlpha = aAlpha;
+  }
+`;
+const lineFS = `
+  precision mediump float;
+  varying float vAlpha;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  uniform float uTime;
+  void main() {
+    vec3 col = mix(uColorA, uColorB, vAlpha * 0.5 + 0.5 * sin(uTime * 0.4));
+    gl_FragColor = vec4(col, vAlpha * 0.45);
+  }
+`;
+const pointVS = `
+  attribute vec2 aPos;
+  attribute float aBright;
+  varying float vBright;
+  uniform vec2 uResolution;
+  uniform float uPointSize;
+  void main() {
+    float aspect = uResolution.x / uResolution.y;
+    vec2 p = aPos;
+    p.x /= aspect;
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+    gl_Position.x *= aspect;
+    gl_PointSize = uPointSize * (0.6 + aBright * 0.6);
+    vBright = aBright;
+  }
+`;
+const pointFS = `
+  precision mediump float;
+  varying float vBright;
+  uniform vec3 uColorA;
+  uniform vec3 uColorB;
+  void main() {
+    float d = length(gl_PointCoord - 0.5) * 2.0;
+    if (d > 1.0) discard;
+    float glow = 1.0 - d;
+    glow = pow(glow, 1.5);
+    vec3 col = mix(uColorA, uColorB, vBright);
+    gl_FragColor = vec4(col, glow * (0.6 + vBright * 0.4));
+  }
+`;
+
+function compileShader(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    console.error(gl.getShaderInfoLog(s));
+  return s;
+}
+function createProgram(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compileShader(vs, gl.VERTEX_SHADER));
+  gl.attachShader(p, compileShader(fs, gl.FRAGMENT_SHADER));
+  gl.linkProgram(p);
+  return p;
+}
+
+const lineProg = createProgram(lineVS, lineFS);
+const pointProg = createProgram(pointVS, pointFS);
+
+// --- Uniform locations ---
+const lineUniforms = {
+  uResolution: gl.getUniformLocation(lineProg, 'uResolution'),
+  uColorA: gl.getUniformLocation(lineProg, 'uColorA'),
+  uColorB: gl.getUniformLocation(lineProg, 'uColorB'),
+  uTime: gl.getUniformLocation(lineProg, 'uTime'),
+};
+const pointUniforms = {
+  uResolution: gl.getUniformLocation(pointProg, 'uResolution'),
+  uColorA: gl.getUniformLocation(pointProg, 'uColorA'),
+  uColorB: gl.getUniformLocation(pointProg, 'uColorB'),
+  uPointSize: gl.getUniformLocation(pointProg, 'uPointSize'),
+};
+
+// --- Attribute locations ---
+const lineAPos = gl.getAttribLocation(lineProg, 'aPos');
+const lineAAlpha = gl.getAttribLocation(lineProg, 'aAlpha');
+const pointAPos = gl.getAttribLocation(pointProg, 'aPos');
+const pointABright = gl.getAttribLocation(pointProg, 'aBright');
+
+// --- Buffers ---
+const linePosBuf = gl.createBuffer();
+const lineAlphaBuf = gl.createBuffer();
+const pointPosBuf = gl.createBuffer();
+const pointBrightBuf = gl.createBuffer();
+
+const WANDER_RADIUS = 0.025;
+const GRID_PADDING = 0.3; // extra coverage beyond screen edges
+
+// --- Points on an exact grid larger than screen ---
+const points = [];
+const cols = Math.round(Math.sqrt(NUM_POINTS * 1.5));
+const rows = Math.round(NUM_POINTS / cols);
+for (let r = 0; r < rows; r++) {
+  for (let c = 0; c < cols; c++) {
+    const hx = -GRID_PADDING + (c + 0.5) / cols * (1.0 + 2.0 * GRID_PADDING);
+    const hy = -GRID_PADDING + (r + 0.5) / rows * (1.0 + 2.0 * GRID_PADDING);
+    points.push({
+      homeX: hx,
+      homeY: hy,
+      x: hx,
+      y: hy,
+      bright: Math.random(),
+      phase: Math.random() * Math.PI * 2,
+      freqX: 0.08 + Math.random() * 0.12,
+      freqY: 0.08 + Math.random() * 0.12,
+    });
+  }
+}
+
+// --- Color palette: deep teal → electric cyan ---
+const colA = [0.1, 0.6, 0.75];
+const colB = [0.4, 0.9, 1.0];
+
+// --- Animation ---
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+function frame(t) {
+  const time = t * 0.001;
+  const aspect = canvas.width / canvas.height;
+
+  // Update points
+  for (const p of points) {
+    p.x = p.homeX + Math.sin(time * p.freqX + p.phase) * WANDER_RADIUS
+                   + Math.sin(time * p.freqX * 0.4 + p.phase * 2.0) * WANDER_RADIUS * 0.3;
+    p.y = p.homeY + Math.cos(time * p.freqY + p.phase) * WANDER_RADIUS
+                   + Math.cos(time * p.freqY * 0.5 + p.phase * 1.5) * WANDER_RADIUS * 0.3;
+    p.bright = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(time * 0.3 + p.phase));
+  }
+
+  // Build line data
+  const linePos = [];
+  const lineAlpha = [];
+
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const a = points[i], b = points[j];
+      const dx = (a.x - b.x) * aspect;
+      const dy = a.y - b.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < CONNECTION_DIST) {
+        const alpha = 1.0 - d / CONNECTION_DIST;
+        linePos.push(a.x, a.y, b.x, b.y);
+        lineAlpha.push(alpha * a.bright, alpha * b.bright);
+      }
+    }
+  }
+
+  // Build point data
+  const pointPos = [];
+  const pointBright = [];
+  for (const p of points) {
+    pointPos.push(p.x, p.y);
+    pointBright.push(p.bright);
+  }
+
+  // --- Draw ---
+  gl.clearColor(0.035, 0.035, 0.07, 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  const res = [canvas.width, canvas.height];
+
+  // Lines
+  if (linePos.length > 0) {
+    gl.useProgram(lineProg);
+    gl.uniform2fv(lineUniforms.uResolution, res);
+    gl.uniform3fv(lineUniforms.uColorA, colA);
+    gl.uniform3fv(lineUniforms.uColorB, colB);
+    gl.uniform1f(lineUniforms.uTime, time);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, linePosBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(linePos), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(lineAPos);
+    gl.vertexAttribPointer(lineAPos, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, lineAlphaBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(lineAlpha), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(lineAAlpha);
+    gl.vertexAttribPointer(lineAAlpha, 1, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.LINES, 0, linePos.length / 2);
+  }
+
+  // Points
+  gl.useProgram(pointProg);
+  gl.uniform2fv(pointUniforms.uResolution, res);
+  gl.uniform3fv(pointUniforms.uColorA, colA);
+  gl.uniform3fv(pointUniforms.uColorB, colB);
+  gl.uniform1f(pointUniforms.uPointSize, POINT_SIZE * devicePixelRatio);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, pointPosBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pointPos), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(pointAPos);
+  gl.vertexAttribPointer(pointAPos, 2, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, pointBrightBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pointBright), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(pointABright);
+  gl.vertexAttribPointer(pointABright, 1, gl.FLOAT, false, 0, 0);
+
+  gl.drawArrays(gl.POINTS, 0, points.length);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// --- Clock ---
+const clockEl = document.getElementById('clock');
+function updateClock() {
+  const now = new Date();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  clockEl.textContent = `${m}:${s}:${ms}`;
+  requestAnimationFrame(updateClock);
+}
+updateClock();
+
+// --- Bounce ---
+let bx = Math.random() * (window.innerWidth - 150);
+let by = Math.random() * (window.innerHeight - 30);
+let bvx = 0.4 + Math.random() * 0.3;
+let bvy = 0.3 + Math.random() * 0.3;
+clockEl.style.transform = 'none';
+clockEl.style.top = by + 'px';
+clockEl.style.left = bx + 'px';
+
+function bounceClock() {
+  const rect = clockEl.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+
+  bx += bvx;
+  by += bvy;
+
+  if (bx <= 0) { bx = 0; bvx = Math.abs(bvx); }
+  if (bx + w >= window.innerWidth) { bx = window.innerWidth - w; bvx = -Math.abs(bvx); }
+  if (by <= 0) { by = 0; bvy = Math.abs(bvy); }
+  if (by + h >= window.innerHeight) { by = window.innerHeight - h; bvy = -Math.abs(bvy); }
+
+  clockEl.style.left = bx + 'px';
+  clockEl.style.top = by + 'px';
+
+  requestAnimationFrame(bounceClock);
+}
+bounceClock();
+
+window.addEventListener('resize', () => {
+  bx = Math.min(bx, window.innerWidth - 100);
+  by = Math.min(by, window.innerHeight - 30);
+});
+</script>
+</body>
+</html>

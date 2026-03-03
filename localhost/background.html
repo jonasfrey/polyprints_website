@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: #07070e; overflow: hidden; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="background"></canvas>
+    <script>
+// Copyright (C) [2026] [Jonas Immanuel Frey] - Licensed under GPLv2. See LICENSE file for details.
+let o_canvas = document.getElementById('background');
+let o_gl = o_canvas.getContext('webgl');
+
+// --- shaders ---
+let s_vert = `
+  attribute vec2 a_pos;
+  attribute vec3 a_col;
+  varying vec3 v_col;
+  void main() {
+    v_col = a_col;
+    gl_Position = vec4(a_pos, 0.0, 1.0);
+  }
+`;
+
+let s_frag = `
+  precision mediump float;
+  varying vec3 v_col;
+  void main() {
+    gl_FragColor = vec4(v_col, 1.0);
+  }
+`;
+
+let f_o_shader__compile = function(n_type, s_src) {
+    let o_shader = o_gl.createShader(n_type);
+    o_gl.shaderSource(o_shader, s_src);
+    o_gl.compileShader(o_shader);
+    return o_shader;
+};
+
+let o_prog = o_gl.createProgram();
+o_gl.attachShader(o_prog, f_o_shader__compile(o_gl.VERTEX_SHADER, s_vert));
+o_gl.attachShader(o_prog, f_o_shader__compile(o_gl.FRAGMENT_SHADER, s_frag));
+o_gl.linkProgram(o_prog);
+o_gl.useProgram(o_prog);
+
+let n_loc__a_pos = o_gl.getAttribLocation(o_prog, 'a_pos');
+let n_loc__a_col = o_gl.getAttribLocation(o_prog, 'a_col');
+o_gl.enableVertexAttribArray(n_loc__a_pos);
+o_gl.enableVertexAttribArray(n_loc__a_col);
+
+let o_buf__tri  = o_gl.createBuffer();
+let o_buf__edge = o_gl.createBuffer();
+
+// --- points ---
+let n_num_points = 70;
+let n_margin     = 150;
+let a_o_point    = [];
+let a_tri_idx    = []; // fixed topology — computed once
+
+let f_init_points = function() {
+    a_o_point = [];
+    let n_w = window.innerWidth  + n_margin * 2;
+    let n_h = window.innerHeight + n_margin * 2;
+    for (let i = 0; i < n_num_points; i++) {
+        let n_bx = Math.random() * n_w - n_margin;
+        let n_by = Math.random() * n_h - n_margin;
+        a_o_point.push({
+            n_base_x:  n_bx,
+            n_base_y:  n_by,
+            n_x: n_bx, n_y: n_by,
+            n_phase_x: Math.random() * Math.PI * 2,
+            n_phase_y: Math.random() * Math.PI * 2,
+            n_speed_x: 0.02 + Math.random() * 0.03,
+            n_speed_y: 0.02 + Math.random() * 0.03,
+            n_amp_x:   10 + Math.random() * 20,
+            n_amp_y:   10 + Math.random() * 20,
+        });
+    }
+    // triangulate once on the base positions — topology stays fixed
+    a_tri_idx = f_a_idx__delaunay(a_o_point);
+};
+
+let f_update_points = function(n_sec) {
+    for (let o of a_o_point) {
+        o.n_x = o.n_base_x + Math.sin(n_sec * o.n_speed_x + o.n_phase_x) * o.n_amp_x;
+        o.n_y = o.n_base_y + Math.cos(n_sec * o.n_speed_y + o.n_phase_y) * o.n_amp_y;
+    }
+};
+
+// --- Delaunay triangulation (Bowyer-Watson) — called once per init ---
+let f_a_idx__delaunay = function(a_o_pt) {
+    let n = a_o_pt.length;
+    let n_d = Math.max(window.innerWidth, window.innerHeight) * 10 + n_margin * 30;
+    let n_cx = window.innerWidth / 2;
+    let n_cy = window.innerHeight / 2;
+
+    let n_sx0 = n_cx - n_d, n_sy0 = n_cy - n_d;
+    let n_sx1 = n_cx + n_d, n_sy1 = n_cy - n_d;
+    let n_sx2 = n_cx,       n_sy2 = n_cy + n_d;
+
+    let f_x = function(i) { return i < n ? a_o_pt[i].n_x : i === n ? n_sx0 : i === n + 1 ? n_sx1 : n_sx2; };
+    let f_y = function(i) { return i < n ? a_o_pt[i].n_y : i === n ? n_sy0 : i === n + 1 ? n_sy1 : n_sy2; };
+
+    let f_cc = function(i, j, k) {
+        let ax = f_x(i), ay = f_y(i);
+        let bx = f_x(j), by = f_y(j);
+        let cx = f_x(k), cy = f_y(k);
+        let D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+        if (Math.abs(D) < 1e-10) return null;
+        let a2 = ax * ax + ay * ay;
+        let b2 = bx * bx + by * by;
+        let c2 = cx * cx + cy * cy;
+        let ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / D;
+        let uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / D;
+        let rdx = ax - ux, rdy = ay - uy;
+        return { i0: i, i1: j, i2: k, n_cx: ux, n_cy: uy, n_r2: rdx * rdx + rdy * rdy };
+    };
+
+    let a_tri = [f_cc(n, n + 1, n + 2)];
+    let a_bad  = [];
+    let a_edge = [];
+
+    for (let p = 0; p < n; p++) {
+        let px = a_o_pt[p].n_x, py = a_o_pt[p].n_y;
+        a_bad.length = 0;
+        a_edge.length = 0;
+
+        for (let t = a_tri.length - 1; t >= 0; t--) {
+            let tri = a_tri[t];
+            let dx = px - tri.n_cx, dy = py - tri.n_cy;
+            if (dx * dx + dy * dy < tri.n_r2) {
+                a_bad.push(tri);
+                a_tri.splice(t, 1);
+            }
+        }
+
+        for (let b = 0; b < a_bad.length; b++) {
+            let tri = a_bad[b];
+            let a_e = [[tri.i0, tri.i1], [tri.i1, tri.i2], [tri.i2, tri.i0]];
+            for (let e = 0; e < 3; e++) {
+                let e0 = a_e[e][0], e1 = a_e[e][1];
+                let b_shared = false;
+                for (let b2 = 0; b2 < a_bad.length; b2++) {
+                    if (b === b2) continue;
+                    let t2 = a_bad[b2];
+                    if ((t2.i0 === e0 || t2.i1 === e0 || t2.i2 === e0) &&
+                        (t2.i0 === e1 || t2.i1 === e1 || t2.i2 === e1)) {
+                        b_shared = true;
+                        break;
+                    }
+                }
+                if (!b_shared) a_edge.push(e0, e1);
+            }
+        }
+
+        for (let e = 0; e < a_edge.length; e += 2) {
+            let cc = f_cc(a_edge[e], a_edge[e + 1], p);
+            if (cc) a_tri.push(cc);
+        }
+    }
+
+    let a_result = [];
+    for (let t = 0; t < a_tri.length; t++) {
+        let tri = a_tri[t];
+        if (tri.i0 >= n || tri.i1 >= n || tri.i2 >= n) continue;
+        a_result.push(tri.i0, tri.i1, tri.i2);
+    }
+    return a_result;
+};
+
+// --- stable color per triangle (computed once from fixed topology) ---
+let a_tri_col = []; // [r, g, b] per triangle
+
+let f_compute_colors = function() {
+    a_tri_col = [];
+    let n_w = window.innerWidth;
+    let n_h = window.innerHeight;
+    for (let t = 0; t < a_tri_idx.length; t += 3) {
+        let i0 = a_tri_idx[t], i1 = a_tri_idx[t + 1], i2 = a_tri_idx[t + 2];
+        let p0 = a_o_point[i0], p1 = a_o_point[i1], p2 = a_o_point[i2];
+        let cx = (p0.n_base_x + p1.n_base_x + p2.n_base_x) / 3;
+        let cy = (p0.n_base_y + p1.n_base_y + p2.n_base_y) / 3;
+
+        let n_key = i0 * 73856093 ^ i1 * 19349663 ^ i2 * 83492791;
+        let h = Math.abs(Math.sin(n_key) * 43758.5453);
+        h = h - Math.floor(h);
+
+        let nx = cx / n_w;
+        let ny = cy / n_h;
+
+        a_tri_col.push(
+            0.035 + nx * 0.015 + h * 0.012,
+            0.050 + ny * 0.030 + h * 0.018,
+            0.120 + (nx + ny) * 0.030 + h * 0.035,
+        );
+    }
+};
+
+// --- resize ---
+let f_resize = function() {
+    o_canvas.width  = window.innerWidth  * devicePixelRatio;
+    o_canvas.height = window.innerHeight * devicePixelRatio;
+    o_gl.viewport(0, 0, o_canvas.width, o_canvas.height);
+    f_init_points();
+    f_compute_colors();
+};
+window.addEventListener('resize', f_resize);
+f_resize();
+
+// --- render loop ---
+let n_stride = 20;
+
+let f_loop = function(n_ms) {
+    let n_sec = n_ms * 0.001;
+    let n_w   = window.innerWidth;
+    let n_h   = window.innerHeight;
+
+    f_update_points(n_sec);
+
+    let n_tri_count = a_tri_idx.length / 3;
+
+    let a_tri_buf  = new Float32Array(n_tri_count * 3 * 5);
+    let a_edge_buf = new Float32Array(n_tri_count * 6 * 5);
+    let n_t = 0, n_e = 0;
+
+    for (let t = 0; t < a_tri_idx.length; t += 3) {
+        let p0 = a_o_point[a_tri_idx[t]];
+        let p1 = a_o_point[a_tri_idx[t + 1]];
+        let p2 = a_o_point[a_tri_idx[t + 2]];
+
+        let n_ci = t; // color index into flat a_tri_col
+        let fr = a_tri_col[n_ci], fg = a_tri_col[n_ci + 1], fb = a_tri_col[n_ci + 2];
+
+        let x0 = p0.n_x / n_w * 2 - 1, y0 = 1 - p0.n_y / n_h * 2;
+        let x1 = p1.n_x / n_w * 2 - 1, y1 = 1 - p1.n_y / n_h * 2;
+        let x2 = p2.n_x / n_w * 2 - 1, y2 = 1 - p2.n_y / n_h * 2;
+
+        // triangle fill
+        a_tri_buf[n_t++] = x0; a_tri_buf[n_t++] = y0;
+        a_tri_buf[n_t++] = fr; a_tri_buf[n_t++] = fg; a_tri_buf[n_t++] = fb;
+        a_tri_buf[n_t++] = x1; a_tri_buf[n_t++] = y1;
+        a_tri_buf[n_t++] = fr; a_tri_buf[n_t++] = fg; a_tri_buf[n_t++] = fb;
+        a_tri_buf[n_t++] = x2; a_tri_buf[n_t++] = y2;
+        a_tri_buf[n_t++] = fr; a_tri_buf[n_t++] = fg; a_tri_buf[n_t++] = fb;
+
+        // edges (slightly brighter)
+        let er = fr + 0.025, eg = fg + 0.04, eb = fb + 0.065;
+        a_edge_buf[n_e++] = x0; a_edge_buf[n_e++] = y0;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+        a_edge_buf[n_e++] = x1; a_edge_buf[n_e++] = y1;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+        a_edge_buf[n_e++] = x1; a_edge_buf[n_e++] = y1;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+        a_edge_buf[n_e++] = x2; a_edge_buf[n_e++] = y2;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+        a_edge_buf[n_e++] = x2; a_edge_buf[n_e++] = y2;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+        a_edge_buf[n_e++] = x0; a_edge_buf[n_e++] = y0;
+        a_edge_buf[n_e++] = er; a_edge_buf[n_e++] = eg; a_edge_buf[n_e++] = eb;
+    }
+
+    o_gl.clearColor(0.027, 0.027, 0.055, 1.0);
+    o_gl.clear(o_gl.COLOR_BUFFER_BIT);
+
+    // draw filled triangles
+    o_gl.bindBuffer(o_gl.ARRAY_BUFFER, o_buf__tri);
+    o_gl.bufferData(o_gl.ARRAY_BUFFER, a_tri_buf, o_gl.DYNAMIC_DRAW);
+    o_gl.vertexAttribPointer(n_loc__a_pos, 2, o_gl.FLOAT, false, n_stride, 0);
+    o_gl.vertexAttribPointer(n_loc__a_col, 3, o_gl.FLOAT, false, n_stride, 8);
+    o_gl.drawArrays(o_gl.TRIANGLES, 0, n_tri_count * 3);
+
+    // draw edges
+    o_gl.bindBuffer(o_gl.ARRAY_BUFFER, o_buf__edge);
+    o_gl.bufferData(o_gl.ARRAY_BUFFER, a_edge_buf, o_gl.DYNAMIC_DRAW);
+    o_gl.vertexAttribPointer(n_loc__a_pos, 2, o_gl.FLOAT, false, n_stride, 0);
+    o_gl.vertexAttribPointer(n_loc__a_col, 3, o_gl.FLOAT, false, n_stride, 8);
+    o_gl.drawArrays(o_gl.LINES, 0, n_tri_count * 6);
+
+    requestAnimationFrame(f_loop);
+};
+
+requestAnimationFrame(f_loop);
+    </script>
+</body>
+</html>
