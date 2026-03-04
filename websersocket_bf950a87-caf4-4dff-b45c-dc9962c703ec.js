@@ -33,11 +33,20 @@ import {
 } from "./serverside/runtimedata.js";
 // import { s_db_create, s_db_read, s_db_update, s_db_delete } from "./localhost/runtimedata.js";
 
-// guard: require .env file before running
-try {
-    await Deno.stat('.env');
-} catch {
-    console.log('.env file not found. Please create a .env file before running the websocket server.');
+// guard: check that required env variables have values
+let a_s_env_missing = [
+    'PORT',
+    'STATIC_DIR',
+    'DB_PATH',
+    'MODEL_CONSTRUCTORS_CLI_LANGUAGES_PATH',
+    'S_UUID',
+    'BIN_PYTHON',
+    'PATH_VENV',
+    'BIN_GLANCES',
+].filter(s => !Deno.env.get(s));
+if (a_s_env_missing.length > 0) {
+    console.log('Missing environment variables: ' + a_s_env_missing.join(', '));
+    console.log('Set them in your .env file or environment before running the websocket server.');
     console.log('You can copy .env.example as a starting point:');
     console.log('  cp .env.example .env');
     Deno.exit(1);
