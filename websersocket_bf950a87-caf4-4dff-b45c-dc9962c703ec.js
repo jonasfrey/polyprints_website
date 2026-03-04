@@ -42,7 +42,6 @@ let a_s_env_missing = [
     'S_UUID',
     'BIN_PYTHON',
     'PATH_VENV',
-    'BIN_GLANCES',
 ].filter(s => !Deno.env.get(s));
 if (a_s_env_missing.length > 0) {
     console.log('Missing environment variables: ' + a_s_env_missing.join(', '));
