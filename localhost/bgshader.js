@@ -9,15 +9,6 @@ let n_point_size = 3.0;
 let n_wander_radius = 0.025;
 let n_grid_padding = 0.3;
 
-// --- Resize ---
-let f_resize = function() {
-    o_canvas.width = window.innerWidth * devicePixelRatio;
-    o_canvas.height = window.innerHeight * devicePixelRatio;
-    o_gl.viewport(0, 0, o_canvas.width, o_canvas.height);
-};
-window.addEventListener('resize', f_resize);
-f_resize();
-
 // --- Shaders ---
 let s_vert__line = `
   attribute vec2 a_pos;
@@ -120,26 +111,42 @@ let o_buf__line_alpha = o_gl.createBuffer();
 let o_buf__point_pos    = o_gl.createBuffer();
 let o_buf__point_bright = o_gl.createBuffer();
 
-// --- Points on a grid larger than screen ---
+// --- Points on an aspect-ratio-aware grid larger than screen ---
 let a_o_point = [];
-let n_cols = Math.round(Math.sqrt(n_num_points * 1.5));
-let n_rows = Math.round(n_num_points / n_cols);
-for (let r = 0; r < n_rows; r++) {
-    for (let c = 0; c < n_cols; c++) {
-        let n_hx = -n_grid_padding + (c + 0.5) / n_cols * (1.0 + 2.0 * n_grid_padding);
-        let n_hy = -n_grid_padding + (r + 0.5) / n_rows * (1.0 + 2.0 * n_grid_padding);
-        a_o_point.push({
-            n_home_x: n_hx,
-            n_home_y: n_hy,
-            n_x: n_hx,
-            n_y: n_hy,
-            n_bright: Math.random(),
-            n_phase: Math.random() * Math.PI * 2,
-            n_freq_x: 0.08 + Math.random() * 0.12,
-            n_freq_y: 0.08 + Math.random() * 0.12,
-        });
+
+let f_init_grid = function() {
+    let n_aspect = window.innerWidth / window.innerHeight;
+    let n_rows = Math.round(Math.sqrt(n_num_points / n_aspect));
+    let n_cols = Math.round(n_rows * n_aspect);
+    a_o_point = [];
+    for (let r = 0; r < n_rows; r++) {
+        for (let c = 0; c < n_cols; c++) {
+            let n_hx = -n_grid_padding + (c + 0.5) / n_cols * (1.0 + 2.0 * n_grid_padding);
+            let n_hy = -n_grid_padding + (r + 0.5) / n_rows * (1.0 + 2.0 * n_grid_padding);
+            a_o_point.push({
+                n_home_x: n_hx,
+                n_home_y: n_hy,
+                n_x: n_hx,
+                n_y: n_hy,
+                n_bright: Math.random(),
+                n_phase: Math.random() * Math.PI * 2,
+                n_freq_x: 0.08 + Math.random() * 0.12,
+                n_freq_y: 0.08 + Math.random() * 0.12,
+            });
+        }
     }
-}
+};
+f_init_grid();
+
+// --- Resize ---
+let f_resize = function() {
+    o_canvas.width = window.innerWidth * devicePixelRatio;
+    o_canvas.height = window.innerHeight * devicePixelRatio;
+    o_gl.viewport(0, 0, o_canvas.width, o_canvas.height);
+    f_init_grid();
+};
+window.addEventListener('resize', f_resize);
+f_resize();
 
 // --- Color palette: deep teal → electric cyan ---
 let a_col_a = [0.1, 0.6, 0.75];

@@ -1,7 +1,6 @@
 // Copyright (C) [2026] [Jonas Immanuel Frey] - Licensed under GPLv2. See LICENSE file for details.
 
-import { createApp, reactive, markRaw } from './lib/vue.esm-browser.js';
-import { createRouter, createWebHashHistory } from './lib/vue-router.esm-browser.js';
+import { createApp, reactive } from './lib/vue.esm-browser.js';
 import {
     a_o_model,
     f_s_name_table__from_o_model,
@@ -19,10 +18,6 @@ import {
 import {
     f_o_html_from_o_js,
 } from "./lib/handyhelpers.js"
-// ==== DB: data component import commented out ====
-// import { o_component__data } from './o_component__data.js';
-import { o_component__home } from './o_component__home.js';
-import { o_component__background } from './o_component__background.js';
 import './css_helper.js';
 
 import { o_logmsg__run_command } from "./runtimedata.js";
@@ -31,32 +26,12 @@ import { o_logmsg__run_command } from "./runtimedata.js";
 
 let o_state = reactive({
     b_loaded: false,
-    a_o_route : [
-
-        {
-            path: '/home',
-            name: 'home',
-            component: markRaw(o_component__home),
-        },
-        // ==== DB: data route commented out ====
-        // {
-        //     path: '/data',
-        //     name: 'data',
-        //     component: markRaw(o_component__data),
-        // },
-        {
-            path: '/background',
-            name: 'background',
-            component: markRaw(o_component__background),
-        },
-    ],
     a_o_model,
     a_o_logmsg: [
         f_o_logmsg('Welcome to the app!', false, true, 'success', Date.now(), 5000),
     ],
     n_ts_ms_now: Date.now(),
     b_utterance_muted: true,
-    b_ui_visible: true,
     o_logmsg__run_command
 });
 
@@ -194,12 +169,6 @@ let f_connect = async function() {
 
 await f_connect();
 
-let o_router = createRouter({
-    history: createWebHashHistory(),
-    routes: o_state.a_o_route,
-});
-
-
 globalThis.o_state = o_state;
 
 setInterval(function(){ o_state.n_ts_ms_now = Date.now(); }, 1000);
@@ -208,7 +177,7 @@ let o_app = createApp({
     data: function() {
         return o_state;
     },
-    template: 
+    template:
     (await f_o_html_from_o_js(
         {
             a_o: [
@@ -221,25 +190,18 @@ let o_app = createApp({
                     id: "clock"
                 },
                 {
-                    class: "nav",
-                    'v-show': "b_ui_visible",
+                    s_tag: "div",
+                    class: "o_home",
                     a_o: [
                         {
-                            's_tag': "router-link",
-                            'class': "interactable",
-                            'v-for': "o_route in a_o_route",
-                            ':to': 'o_route.path',
-                            innerText: "{{ o_route.path }}",
-                        }
-                    ]
+                            s_tag: "h1",
+                            innerText: "PolyPrints",
+                        },
+                    ],
                 },
-                {
-                    s_tag: "router-view"
-                },  
                 {
                     s_tag: "div",
                     class: "a_o_logmsg",
-                    'v-show': "b_ui_visible",
                     a_o: [
                         {
                             s_tag: "div",
@@ -255,12 +217,10 @@ let o_app = createApp({
                             innerText: "{{ o_logmsg__run_command.s_message }}",
                         },
                     ]
-
                 },
                 {
                     s_tag: "div",
                     class: "interactable",
-                    'v-show': "b_ui_visible",
                     ':class': "{ muted: b_utterance_muted }",
                     '@click': "b_utterance_muted = !b_utterance_muted",
                     ':title': "b_utterance_muted ? 'Unmute utterances' : 'Mute utterances'",
@@ -277,8 +237,6 @@ let o_app = createApp({
 });
 globalThis.o_app = o_app;
 globalThis.o_state = o_state;
-
-o_app.use(o_router);
 
 o_app.mount('#app');
 
